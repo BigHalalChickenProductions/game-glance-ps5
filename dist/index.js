@@ -5425,18 +5425,19 @@ const HOVER$1 = `html[${MOUSE_ATTR}]`;
 /** Accent changes animate over 500 ms on every accent-coloured property, as on Home (handoff "Interactions & motion"). */
 const ACCENT_MS$1 = 500;
 // The 1.1.1 scrims over the art (bottom, for the cards; left, for the logo).
-const SCRIM_BOTTOM = 'linear-gradient(0deg, rgba(8, 11, 15, 0.94) 0%, rgba(8, 11, 15, 0.6) 34%, transparent 60%)';
-const SCRIM_LEFT = 'linear-gradient(90deg, rgba(8, 11, 15, 0.45) 0%, transparent 45%)';
+// Scrims removed (Game Glance PS5): the art is shown at full brightness.
+const SCRIM_BOTTOM = 'linear-gradient(transparent, transparent)';
+const SCRIM_LEFT = 'linear-gradient(transparent, transparent)';
 // The handoff's details scrims (scrim base rgb(5,7,10)), laid over the 1.1.1 ones when restyled.
-const HANDOFF_SCRIM_LEFT = 'linear-gradient(90deg, rgba(5, 7, 10, 0.6) 0%, rgba(5, 7, 10, 0.1) 55%, rgba(5, 7, 10, 0) 75%)';
-const HANDOFF_SCRIM_BOTTOM = 'linear-gradient(180deg, rgba(5, 7, 10, 0) 55%, rgba(5, 7, 10, 0.6) 100%)';
+const HANDOFF_SCRIM_LEFT = 'linear-gradient(transparent, transparent)';
+const HANDOFF_SCRIM_BOTTOM = 'linear-gradient(transparent, transparent)';
 /** The restyled header's scrim layers, top to bottom (the handoff's over the 1.1.1 ones); also Home's page scrim in the open transition. */
 const PAGE_SCRIM_LAYERS = [HANDOFF_SCRIM_LEFT, HANDOFF_SCRIM_BOTTOM, SCRIM_BOTTOM, SCRIM_LEFT];
 /**
  * Steam's own shadow along the top of the game page (its header module's TopGradient: 75 px, black .5 to clear;
  * probed on the Ally). Steam draws it on the page itself; Spotlight Home draws it too (homeCss .gh-scrim-page).
  */
-const STEAM_TOP_GRADIENT = 'linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0px, rgba(0, 0, 0, 0) 75px)';
+const STEAM_TOP_GRADIENT = 'linear-gradient(transparent, transparent)';
 /** The same layers as one CSS background value. */
 const PAGE_SCRIMS = PAGE_SCRIM_LAYERS.join(', ');
 /**
@@ -6244,6 +6245,21 @@ function cleanBarsArriving(brought) {
  * opacity and transform; probed on the Ally). The open transition's bridge carries it while it is up (so Steam's own
  * page, too, is there at once under it) and the arriving Game Glance page repeats it; '' when the classes are unknown.
  */
+/**
+ * The way back from a game page (B): Steam fades and slides the leaving page away (0.2 s delay + 0.6 s) while the next
+ * page mounts. When Home was slow to mount (it hides the leaving page itself once it is up), that fade showed what is
+ * under the page for a moment. While a Game Glance page is the one leaving, it is held still and fully visible instead,
+ * so the next page (Home, opaque) simply covers it. Steam still unmounts it when its exit timer ends.
+ */
+function buildExitHoldCss({ transition }) {
+    const top = cls(transition, 'TopLevelTransition');
+    const exit = cls(transition, 'Exit');
+    const exitActive = cls(transition, 'ExitActive');
+    if (!top || !exit || !exitActive)
+        return '';
+    const marker = ':has(.gg-titleblock, .gg-hero)';
+    return rule$1([`${top}${exit}${marker}`, `${top}${exitActive}${marker}`], ' opacity: 1 !important; transform: none !important; transition: none !important; ');
+}
 function buildSteamEnterOffCss({ transition }) {
     const top = cls(transition, 'TopLevelTransition');
     const enter = cls(transition, 'Enter');
@@ -7733,8 +7749,8 @@ function ps5HomeRules(cardScale) {
     return [
         // Row along the top, as tall as the selected tile; tiles hang from its top edge.
         rule(`${P} .gh-recents`, `top: calc(${p.top}px - var(--gh-top)); height: ${p.wideW}px`),
-        rule(`${P} .gh-cap`, `height: ${p.capsuleH}px; border-radius: ${Math.round(p.capsuleH * 0.08)}px`),
-        rule(`${P} .gh-cap.gh-cap-sel`, `height: ${p.wideW}px; border-radius: ${Math.round(p.wideW * 0.08)}px`),
+        rule(`${P} .gh-cap`, `height: auto; aspect-ratio: 1 / 1; border-radius: ${Math.round(p.capsuleH * 0.08)}px`),
+        rule(`${P} .gh-cap.gh-cap-sel`, `height: auto; aspect-ratio: 1 / 1; border-radius: ${Math.round(p.wideW * 0.08)}px`),
         // The cover fills the square tile (cropped from the portrait), instead of a portrait strip on the right.
         rule(`${P} .gh-cap-cover`, 'left: 0; right: 0; width: 100%; background-position: center 30%'),
         rule(`${P} .gh-cap-art`, 'display: none'),
@@ -8096,6 +8112,9 @@ function homeCss(cardScale = CARD_SCALE_HANDHELD) {
         // No-games state, centred in the area between Steam's bars: the message and the Open Library pill.
         rule('.gh-empty', 'position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 0 56px; text-align: center; font-size: 22px; font-weight: 700; letter-spacing: .02em; color: rgba(255,255,255,.72)'),
         rule('.gh-empty .gh-actions', 'margin: 0'),
+        // Game Glance PS5: no store badge (Steam / Non-Steam) on Home, and no faded loop preview of the first games after the Library tile.
+        rule('.gh-root .gh-source', 'display: none'),
+        rule('.gh-root .gh-ghost', 'display: none'),
         ...ps5HomeRules(cardScale),
     ].join('\n');
 }
@@ -9163,6 +9182,29 @@ function pageArrivalSelectors() {
 /** Steam's page-enter fade switched off (themeCss.buildSteamEnterOffCss), for the open transition's bridge. */
 function steamEnterOffCss() {
     return buildSteamEnterOffCss(themeClasses());
+}
+/** Holds a leaving Game Glance page still until the next page covers it (themeCss.buildExitHoldCss). */
+function exitHoldCss() {
+    try {
+        return buildExitHoldCss(themeClasses());
+    }
+    catch {
+        return '';
+    }
+}
+const EXIT_HOLD_COMPONENT = 'GameGlanceExitHold';
+function ExitHold() {
+    const { enabled } = useSettings();
+    const [tries, setTries] = SP_REACT.useState(0);
+    const css = SP_REACT.useMemo(() => (enabled ? exitHoldCss() : ''), [enabled, tries]);
+    // Steam's class names can be unknown for a moment at start-up: try again a few times.
+    SP_REACT.useEffect(() => {
+        if (!enabled || css || tries >= 10)
+            return undefined;
+        const timer = setTimeout(() => setTries((t) => t + 1), 2000);
+        return () => clearTimeout(timer);
+    }, [enabled, css, tries]);
+    return css ? SP_JSX.jsx("style", { children: css }) : null;
 }
 /** Steam's footer (themeCss.steamFooterSelector), which the open transition's bridge copies. */
 function steamFooter() {
@@ -16952,7 +16994,7 @@ const GameCapsule = SP_REACT.memo(function GameCapsule({ game, index, left, widt
     const cover = SP_REACT.useMemo(() => urls(() => capsuleUrls(appId, browserStores)), [appId]);
     const list = SP_REACT.useMemo(() => (wide ? wideArt(urls(() => landscapeUrls(appId, browserStores)), urls(() => heroUrls(appId, browserStores)), cover) : null), [appId, wide, cover]);
     const art = useCardArt(appId, list, box);
-    return (SP_JSX.jsxs("div", { className: `gh-cap${wide ? ' gh-cap-wide' : ''}${selected ? ' gh-cap-sel' : ''}${hover ? ' gh-cap-hover' : ''}${greyedOut(game, grayUninstalled) ? ' gh-cap-off' : ''}`, "data-hover": `g${index}`, style: { left: `${left}px`, width: `${width}px`, opacity: dim ? 0.35 : 1 }, onClick: (event) => onTap(index, event), children: [SP_JSX.jsx(CapsuleArt, { cover: cover, art: art, blur: blur }), (game.isNew || game.demo) && (SP_JSX.jsxs("div", { className: "gh-cap-marks", children: [game.isNew && SP_JSX.jsx("div", { className: "gh-cap-new", children: tr('newMark') }), game.demo && SP_JSX.jsx("div", { className: "gh-cap-new", children: tr('demoMark') })] })), SP_JSX.jsx("div", { className: "gh-cap-bar" })] }));
+    return (SP_JSX.jsxs("div", { className: `gh-cap${wide ? ' gh-cap-wide' : ''}${selected ? ' gh-cap-sel' : ''}${hover ? ' gh-cap-hover' : ''}${greyedOut(game, grayUninstalled) ? ' gh-cap-off' : ''}`, "data-hover": `g${index}`, style: { left: `${left}px`, width: `${width}px`, opacity: 1 }, onClick: (event) => onTap(index, event), children: [SP_JSX.jsx(CapsuleArt, { cover: cover, art: art, blur: blur }), (game.isNew || game.demo) && (SP_JSX.jsxs("div", { className: "gh-cap-marks", children: [game.isNew && SP_JSX.jsx("div", { className: "gh-cap-new", children: tr('newMark') }), game.demo && SP_JSX.jsx("div", { className: "gh-cap-new", children: tr('demoMark') })] })), SP_JSX.jsx("div", { className: "gh-cap-bar" })] }));
 });
 /**
  * The recents row: games, then "View more in your Library", then the loop preview of the first games. One focusable for
@@ -18323,6 +18365,7 @@ var index = definePlugin(() => {
     const unpatchHome = patchHomePage(); // never throws; applied after and independent of the game page patch
     const cancelRemount = remountHomeAfterReload(noteLoad()); // an update: Home on screen is redrawn by this copy
     routerHook.addGlobalComponent(SCREENSAVER_COMPONENT, ScreensaverHost); // draws only while Steam's screensaver is on
+    routerHook.addGlobalComponent(EXIT_HOLD_COMPONENT, ExitHold); // smooth way back from a game page (no flash of what is under it)
     const stopAutoPreload = startAutoPreload();
     const stopUpdateChecks = startUpdateChecks(); // quiet: once now (a day-old answer is reused), then daily
     console.log(`${LOG_PREFIX} loaded`);
@@ -18340,6 +18383,7 @@ var index = definePlugin(() => {
                 ['Home unpatch', unpatchHome],
                 ['Home reopen cancel', cancelRemount],
                 ['screensaver remove', () => routerHook.removeGlobalComponent(SCREENSAVER_COMPONENT)],
+                ['exit hold remove', () => routerHook.removeGlobalComponent(EXIT_HOLD_COMPONENT)],
                 ['auto preload stop', stopAutoPreload],
                 ['update checks stop', stopUpdateChecks],
                 ['downloads stop', stopDownloads],
