@@ -6245,21 +6245,6 @@ function cleanBarsArriving(brought) {
  * opacity and transform; probed on the Ally). The open transition's bridge carries it while it is up (so Steam's own
  * page, too, is there at once under it) and the arriving Game Glance page repeats it; '' when the classes are unknown.
  */
-/**
- * The way back from a game page (B): Steam fades and slides the leaving page away (0.2 s delay + 0.6 s) while the next
- * page mounts. When Home was slow to mount (it hides the leaving page itself once it is up), that fade showed what is
- * under the page for a moment. While a Game Glance page is the one leaving, it is held still and fully visible instead,
- * so the next page (Home, opaque) simply covers it. Steam still unmounts it when its exit timer ends.
- */
-function buildExitHoldCss({ transition }) {
-    const top = cls(transition, 'TopLevelTransition');
-    const exit = cls(transition, 'Exit');
-    const exitActive = cls(transition, 'ExitActive');
-    if (!top || !exit || !exitActive)
-        return '';
-    const marker = ':has(.gg-titleblock, .gg-hero)';
-    return rule$1([`${top}${exit}${marker}`, `${top}${exitActive}${marker}`], ' opacity: 1 !important; transform: none !important; transition: none !important; ');
-}
 function buildSteamEnterOffCss({ transition }) {
     const top = cls(transition, 'TopLevelTransition');
     const enter = cls(transition, 'Enter');
@@ -9182,29 +9167,6 @@ function pageArrivalSelectors() {
 /** Steam's page-enter fade switched off (themeCss.buildSteamEnterOffCss), for the open transition's bridge. */
 function steamEnterOffCss() {
     return buildSteamEnterOffCss(themeClasses());
-}
-/** Holds a leaving Game Glance page still until the next page covers it (themeCss.buildExitHoldCss). */
-function exitHoldCss() {
-    try {
-        return buildExitHoldCss(themeClasses());
-    }
-    catch {
-        return '';
-    }
-}
-const EXIT_HOLD_COMPONENT = 'GameGlanceExitHold';
-function ExitHold() {
-    const { enabled } = useSettings();
-    const [tries, setTries] = SP_REACT.useState(0);
-    const css = SP_REACT.useMemo(() => (enabled ? exitHoldCss() : ''), [enabled, tries]);
-    // Steam's class names can be unknown for a moment at start-up: try again a few times.
-    SP_REACT.useEffect(() => {
-        if (!enabled || css || tries >= 10)
-            return undefined;
-        const timer = setTimeout(() => setTries((t) => t + 1), 2000);
-        return () => clearTimeout(timer);
-    }, [enabled, css, tries]);
-    return css ? SP_JSX.jsx("style", { children: css }) : null;
 }
 /** Steam's footer (themeCss.steamFooterSelector), which the open transition's bridge copies. */
 function steamFooter() {
@@ -18365,7 +18327,6 @@ var index = definePlugin(() => {
     const unpatchHome = patchHomePage(); // never throws; applied after and independent of the game page patch
     const cancelRemount = remountHomeAfterReload(noteLoad()); // an update: Home on screen is redrawn by this copy
     routerHook.addGlobalComponent(SCREENSAVER_COMPONENT, ScreensaverHost); // draws only while Steam's screensaver is on
-    routerHook.addGlobalComponent(EXIT_HOLD_COMPONENT, ExitHold); // smooth way back from a game page (no flash of what is under it)
     const stopAutoPreload = startAutoPreload();
     const stopUpdateChecks = startUpdateChecks(); // quiet: once now (a day-old answer is reused), then daily
     console.log(`${LOG_PREFIX} loaded`);
@@ -18383,7 +18344,6 @@ var index = definePlugin(() => {
                 ['Home unpatch', unpatchHome],
                 ['Home reopen cancel', cancelRemount],
                 ['screensaver remove', () => routerHook.removeGlobalComponent(SCREENSAVER_COMPONENT)],
-                ['exit hold remove', () => routerHook.removeGlobalComponent(EXIT_HOLD_COMPONENT)],
                 ['auto preload stop', stopAutoPreload],
                 ['update checks stop', stopUpdateChecks],
                 ['downloads stop', stopDownloads],
