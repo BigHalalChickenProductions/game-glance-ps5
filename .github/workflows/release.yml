@@ -1,0 +1,44 @@
+name: release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+# One release run at a time; later uploads queue behind it.
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # Website uploads often arrive as several commits a few minutes apart.
+      # Wait, then build from the newest main so a release has every file.
+      - name: Wait for any remaining uploads
+        if: github.event_name == 'push'
+        run: sleep 180
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Read version
+        id: v
+        run: echo "version=$(python3 -c "import json;print(json.load(open('package.json'))['version'])")" >> "$GITHUB_OUTPUT"
+      - name: Build zip
+        run: |
+          mkdir -p out/game-glance
+          cp -r plugin.json package.json main.py dist py_modules LICENSE THIRD_PARTY_LICENSES.md out/game-glance/
+          (cd out && zip -rq ../game-glance.zip game-glance)
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v${{ steps.v.outputs.version }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists, skipping"
+            exit 0
+          fi
+          gh release create "$tag" game-glance.zip \
+            --title "Game Glance v${{ steps.v.outputs.version }}" \
+            --notes "Game Glance PS5-style build." \
+            --target "$(git rev-parse HEAD)"
