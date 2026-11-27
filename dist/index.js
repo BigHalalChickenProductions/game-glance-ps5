@@ -3562,7 +3562,7 @@ function readScreensaverOptions(raw) {
 }
 
 const KEY$2 = 'settings';
-const DEFAULTS = { enabled: true, autoPreload: true, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: RECENT_ROW, homeRowSort: 'lastPlayed', homeRowStyle: 'steam', playButtonStyle: 'glass', openAnimation: 'fast', homeGrayUninstalled: true, heroFit: 'fill', feedTabs: FEED_TABS_DEFAULT, screensaver: SCREENSAVER_DEFAULTS };
+const DEFAULTS = { enabled: true, autoPreload: true, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: RECENT_ROW, homeRowSort: 'lastPlayed', homeRowStyle: 'steam', playButtonStyle: 'glass', openAnimation: 'smooth', homeGrayUninstalled: true, heroFit: 'fill', feedTabs: FEED_TABS_DEFAULT, screensaver: SCREENSAVER_DEFAULTS };
 function createSettingsStore(kv) {
     let current = { ...DEFAULTS };
     let retained = {};
@@ -3592,7 +3592,7 @@ function createSettingsStore(kv) {
                 homeRowSort: rowSortOf(raw?.homeRowSort),
                 homeRowStyle: rowStyleOf(raw?.homeRowStyle),
                 playButtonStyle: raw?.playButtonStyle === 'colored' ? 'colored' : 'glass',
-                openAnimation: raw?.openAnimation === 'smooth' ? 'smooth' : 'fast',
+                openAnimation: raw?.openAnimation === 'fast' ? 'fast' : 'smooth',
                 homeGrayUninstalled: pick('homeGrayUninstalled'),
                 heroFit: heroFitOf(raw?.heroFit),
                 feedTabs: feedTabsOf(raw?.feedTabs),
@@ -4355,7 +4355,7 @@ function SettingsPanel() {
         spotlightHome: (SP_JSX.jsx(DFL.ToggleField, { label: "Spotlight Home", description: "Replaces Steam's Home screen. Off returns Steam's own Home.", checked: spotlightHome, onChange: (value) => settings.setSpotlightHome(value) })),
         gamesRow: (SP_JSX.jsx(DFL.DropdownItem, { label: "Games row", description: "Your recent games (with games new to your library, as on Steam's Home), or one of your collections.", menuLabel: "Games row", rgOptions: [{ data: RECENT_ROW, label: tr('recentGames') }, ...collections.map((c) => ({ data: c.id, label: `${c.name} (${c.count})` }))], selectedOption: rowChosen, onChange: (option) => settings.setHomeRow(String(option.data)) })),
         rowSort: (SP_JSX.jsx(DFL.DropdownItem, { label: sortByLabel(), menuLabel: sortByLabel(), rgOptions: ROW_SORTS.map((s) => ({ data: s, label: rowSortLabel(s) })), selectedOption: homeRowSort, onChange: (option) => settings.setHomeRowSort(option.data) })),
-        openAnimation: (SP_JSX.jsx(DFL.DropdownItem, { label: "Opening a game", description: openAnimation === 'smooth' ? "Smooth: Home turns into the game page (about a second before you can press Play)." : "Fast: the game page opens straight away, ready for Play.", menuLabel: "Opening a game", rgOptions: [{ data: 'fast', label: 'Fast' }, { data: 'smooth', label: 'Smooth' }], selectedOption: openAnimation, onChange: (option) => settings.setOpenAnimation(option.data) })),
+        openAnimation: (SP_JSX.jsx(DFL.DropdownItem, { label: "Opening a game", description: openAnimation === 'smooth' ? "Smooth: Home turns into the game page, ready for Play as soon as it lands." : "Fast: the game page opens straight away, no animation.", menuLabel: "Opening a game", rgOptions: [{ data: 'fast', label: 'Fast' }, { data: 'smooth', label: 'Smooth' }], selectedOption: openAnimation, onChange: (option) => settings.setOpenAnimation(option.data) })),
         rowStyle: (SP_JSX.jsx(DFL.DropdownItem, { label: "Games row style", description: "Steam: the first game stays wide and selection moves along the row. Spotlight: the selected game stays wide at the left. Minimal: all cards stay small. PS5: square tiles along the top, with the game's title and Play button at the bottom.", menuLabel: "Games row style", rgOptions: [{ data: 'steam', label: 'Steam' }, { data: 'spotlight', label: 'Spotlight' }, { data: 'minimal', label: 'Minimal' }, { data: 'ps5', label: 'PS5' }], selectedOption: homeRowStyle, onChange: (option) => settings.setHomeRowStyle(option.data) })),
         grayUninstalled: (SP_JSX.jsx(DFL.ToggleField, { label: "Gray out uninstalled games", description: "Shows uninstalled Steam games in gray until selected. Turn off to keep their artwork in color.", checked: homeGrayUninstalled, onChange: (value) => settings.setHomeGrayUninstalled(value) })),
         wishlistDeals: (SP_JSX.jsx(DFL.ToggleField, { label: "Show wishlist deals", description: "Sends your Steam ID to Steam's public store to find games on sale from your wishlist. Off by default.", checked: wishlistDeals, onChange: (value) => settings.setWishlistDeals(value) })),
@@ -6280,6 +6280,29 @@ function arrivalSelectors({ header, root }) {
     const topCapsule = cls(header, 'TopCapsule');
     const play = cls(root, 'PlaySection');
     return { headerImg: topCapsule && `${topCapsule} img:not([src*="_blur"])`, titleblock: '.gg-titleblock', play, focus: play && `${play} .gpfocus, ${play} :focus` };
+}
+/**
+ * Game Glance PS5: while Home animates over the already-opened page, Steam's leaving Home stays as it is and on top, and
+ * the arriving page stays unseen under it (doubled classes: wins over the bridge's own rules until it is removed).
+ */
+function steamExitHoldCss() {
+    try {
+        const { transition } = themeClasses();
+        const top = cls(transition, 'TopLevelTransition');
+        const enter = cls(transition, 'Enter');
+        const enterActive = cls(transition, 'EnterActive');
+        const exit = cls(transition, 'Exit');
+        const exitActive = cls(transition, 'ExitActive');
+        if (!top || !enter || !enterActive || !exit || !exitActive)
+            return '';
+        return [
+            rule$1([`${top}${top}${exit}`, `${top}${top}${exitActive}`], ' opacity: 1 !important; transform: none !important; visibility: visible !important; z-index: 10 !important; '),
+            rule$1([`${top}${top}${enter}`, `${top}${top}${enterActive}`], ' opacity: 0 !important; transition: none !important; '),
+        ].join('\n');
+    }
+    catch {
+        return '';
+    }
 }
 /** Steam's footer (one element over every page, Home's and the game page's alike), or null when its class is unknown. */
 function steamFooterSelector({ footer }) {
@@ -10093,6 +10116,16 @@ function createOpenTransition(deps) {
     let stopCancel = null;
     let stopReady = null;
     let timers = [];
+    // Game Glance PS5: the page is opened at the press, under Home's animation (Steam's own ~0.8 s page-enter wait runs
+    // during it, not after it); `releaseHold` lets Steam hide the leaving Home again.
+    let navigated = false;
+    let releaseHold = null;
+    const dropHold = () => {
+        const r = releaseHold;
+        releaseHold = null;
+        if (r)
+            safely('could not release Home', r);
+    };
     const warn = (message, error) => {
         try {
             deps.warn?.(message, error);
@@ -10143,6 +10176,8 @@ function createOpenTransition(deps) {
         undoHome = null;
         if (undo && u)
             safely("could not restore Home", u);
+        dropHold();
+        navigated = false;
         running = false;
     };
     const navigate = (path) => {
@@ -10172,6 +10207,31 @@ function createOpenTransition(deps) {
             finish(true);
     };
     const handOver = (path, fadeIn) => {
+        if (navigated) {
+            // The page is already open (and usable) under Home: the copy covers the switch, then fades onto the page.
+            try {
+                bridge = deps.homeAlive?.() === false ? null : deps.mountBridge();
+            }
+            catch (error) {
+                warn('could not place the bridge', error);
+                bridge = null;
+            }
+            const b = bridge;
+            if (!b)
+                return finish(true);
+            const go = () => {
+                dropHold();
+                leave(true);
+            };
+            if (fadeIn > 0) {
+                safely('could not fade the bridge in', () => b.fadeIn(fadeIn));
+                if (!later(go, fadeIn))
+                    go();
+            }
+            else
+                go();
+            return;
+        }
         try {
             bridge = deps.mountBridge();
         }
@@ -10223,6 +10283,24 @@ function createOpenTransition(deps) {
             if (!undoHome) {
                 finish(false);
                 navigate(path);
+                return;
+            }
+            if (deps.earlyNavigate?.() === true) {
+                safely('could not mark the open', () => deps.markOpen());
+                try {
+                    releaseHold = deps.holdHome?.() ?? null;
+                }
+                catch (error) {
+                    warn('could not hold Home', error);
+                    releaseHold = null;
+                }
+                if (!navigate(path)) {
+                    finish(true);
+                    return;
+                }
+                navigated = true;
+                if (!later(() => handOver(path, bridgeInFor(variant)), handOverAt(variant)))
+                    finish(true);
                 return;
             }
             safely('could not listen for Back', () => {
@@ -11479,6 +11557,18 @@ function controller() {
         markOpen: () => {
             if (active)
                 markOpen(active.appId, active.intent);
+        },
+        earlyNavigate: () => settings.get().openAnimation === 'smooth',
+        homeAlive: () => Boolean(active?.root?.isConnected),
+        holdHome: () => {
+            const doc = active?.root?.ownerDocument;
+            const css = steamExitHoldCss();
+            if (!doc?.head || !css)
+                return null;
+            const style = doc.createElement('style');
+            style.textContent = css;
+            doc.head.appendChild(style);
+            return () => style.remove();
         },
         onReady: (cb) => (active ? whenReady(active, cb) : () => undefined),
         setTimer: (fn, ms) => setTimeout(fn, ms),
