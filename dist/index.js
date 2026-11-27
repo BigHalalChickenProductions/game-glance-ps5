@@ -3562,7 +3562,7 @@ function readScreensaverOptions(raw) {
 }
 
 const KEY$2 = 'settings';
-const DEFAULTS = { enabled: true, autoPreload: true, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: RECENT_ROW, homeRowSort: 'lastPlayed', homeRowStyle: 'steam', homeGrayUninstalled: true, heroFit: 'fill', feedTabs: FEED_TABS_DEFAULT, screensaver: SCREENSAVER_DEFAULTS };
+const DEFAULTS = { enabled: true, autoPreload: true, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: RECENT_ROW, homeRowSort: 'lastPlayed', homeRowStyle: 'steam', playButtonStyle: 'glass', homeGrayUninstalled: true, heroFit: 'fill', feedTabs: FEED_TABS_DEFAULT, screensaver: SCREENSAVER_DEFAULTS };
 function createSettingsStore(kv) {
     let current = { ...DEFAULTS };
     let retained = {};
@@ -3591,6 +3591,7 @@ function createSettingsStore(kv) {
                 homeRow: typeof raw?.homeRow === 'string' && raw.homeRow !== '' ? raw.homeRow : DEFAULTS.homeRow,
                 homeRowSort: rowSortOf(raw?.homeRowSort),
                 homeRowStyle: rowStyleOf(raw?.homeRowStyle),
+                playButtonStyle: raw?.playButtonStyle === 'colored' ? 'colored' : 'glass',
                 homeGrayUninstalled: pick('homeGrayUninstalled'),
                 heroFit: heroFitOf(raw?.heroFit),
                 feedTabs: feedTabsOf(raw?.feedTabs),
@@ -3633,6 +3634,12 @@ function createSettingsStore(kv) {
             current = { ...current, homeRowSort };
             emit();
             await persist({ homeRowSort });
+        },
+        async setPlayButtonStyle(playButtonStyle) {
+            playButtonStyle = playButtonStyle === 'colored' ? 'colored' : 'glass';
+            current = { ...current, playButtonStyle };
+            emit();
+            await persist({ playButtonStyle });
         },
         async setHomeRowStyle(homeRowStyle) {
             current = { ...current, homeRowStyle };
@@ -4296,7 +4303,7 @@ const HERO_FIT_COPY = {
     fit: 'Shows the whole art at the top, with a blurred copy behind it.',
 };
 function SettingsPanel() {
-    const { enabled, autoPreload, spotlightHome, wishlistDeals, cleanPage, homeStatusBar, statusAvatar, gameLogo, homeRow, homeRowSort, homeRowStyle, homeGrayUninstalled, heroFit, feedTabs, screensaver } = useSettings();
+    const { enabled, autoPreload, spotlightHome, wishlistDeals, cleanPage, homeStatusBar, statusAvatar, gameLogo, homeRow, homeRowSort, homeRowStyle, playButtonStyle, homeGrayUninstalled, heroFit, feedTabs, screensaver } = useSettings();
     // Read when the panel opens, so a collection made since shows up.
     const collections = SP_REACT.useMemo(steamHomeCollections, []);
     const rowChosen = collections.some((c) => c.id === homeRow) ? homeRow : RECENT_ROW;
@@ -4350,7 +4357,7 @@ function SettingsPanel() {
         friends: (SP_JSX.jsx(DFL.ToggleField, { label: "Friends", description: "What your friends are playing, and what is trending among them.", checked: feedTabs.friends, onChange: (value) => settings.setFeedTab('friends', value) })),
         recommended: (SP_JSX.jsx(DFL.ToggleField, { label: "Recommended", description: "Games from your library to play next.", checked: feedTabs.recommended, onChange: (value) => settings.setFeedTab('recommended', value) })),
     };
-    return (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsxs(DFL.PanelSection, { title: "Game page", children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Game Glance", checked: enabled, onChange: (value) => settings.setEnabled(value) }) }), enabled && (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Clean look", description: "One row at the bottom: Play, your stats and the store, over the full art. No description or HowLongToBeat cards.", checked: cleanPage, onChange: (value) => settings.setCleanPage(value) }) }))] }), SP_JSX.jsx(DFL.PanelSection, { title: "Home page", children: spotlightRows({ spotlightHome, homeStatusBar, feedTabs }, rowChosen !== RECENT_ROW).map((row) => (SP_JSX.jsx(DFL.PanelSectionRow, { children: spotlightRow[row] }, row))) }), SP_JSX.jsxs(DFL.PanelSection, { title: "Appearance", children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Game logo", description: "Shows the game's logo instead of its name, on Home and the game page. A game without a logo keeps its name.", checked: gameLogo, onChange: (value) => settings.setGameLogo(value) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.DropdownItem, { label: "Hero art", description: HERO_FIT_COPY[heroFit], menuLabel: "Hero art", rgOptions: HERO_FITS.map((fit) => ({ data: fit, label: fit === 'fill' ? 'Fill' : 'Fit' })), selectedOption: heroFit, onChange: (option) => settings.setHeroFit(option.data) }) })] }), SP_JSX.jsx(DFL.PanelSection, { title: "Screensaver", children: !screensaverAvailable() ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: "Needs a newer Steam client, one with the screensaver (Settings \u2192 Customization \u2192 Screensaver)." })) : (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Game Glance screensaver", description: "Steam's Game Slideshow with the games of your Games row and their custom art, filling the screen. Turn off the logo, status bar and stats for only the art. Off returns Steam's own.", checked: screensaver.enabled, onChange: (value) => settings.setScreensaver({ enabled: value }) }) }), screensaver.enabled && (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Logo", description: "The game's logo at the bottom-left, as on Home (its name when it has none).", checked: screensaver.logo, onChange: (value) => settings.setScreensaver({ logo: value }) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Status bar", description: "Clock, battery and connection at the top-right.", checked: screensaver.statusBar, onChange: (value) => settings.setScreensaver({ statusBar: value }) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Stats", description: "A small card at the bottom-right: your play time, the HowLongToBeat time you are working toward and your achievements.", checked: screensaver.stats, onChange: (value) => settings.setScreensaver({ stats: value }) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: previewScreensaver, children: "Preview" }) })] }))] })) }), SP_JSX.jsx(DFL.PanelSection, { title: "HowLongToBeat match", children: game ? (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsxs(DFL.PanelSectionRow, { children: [SP_JSX.jsx("div", { children: game.name }), SP_JSX.jsx("div", { style: { opacity: 0.7, fontSize: '12px' }, children: match })] }), hltb?.status === 'found' && (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => DFL.Navigation.NavigateToExternalWeb(`https://howlongtobeat.com/game/${hltb.gameId}`), children: "Open on HowLongToBeat" }) })), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: "HowLongToBeat link or ID", value: input, onChange: (e) => setInput(e.target.value) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: save, children: "Use this game" }) }), overrideId !== null && (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: remove, children: "Remove override" }) }))] })) : (SP_JSX.jsx(DFL.PanelSectionRow, { children: "Open a game page first." })) }), SP_JSX.jsxs(DFL.PanelSection, { title: "Data", children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Pre-load new games automatically", description: "Checks for new installs every 30 minutes and fetches their game info.", checked: autoPreload, onChange: (value) => settings.setAutoPreload(value) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", description: fetching.running
+    return (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsxs(DFL.PanelSection, { title: "Game page", children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Game Glance", checked: enabled, onChange: (value) => settings.setEnabled(value) }) }), enabled && (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Clean look", description: "One row at the bottom: Play, your stats and the store, over the full art. No description or HowLongToBeat cards.", checked: cleanPage, onChange: (value) => settings.setCleanPage(value) }) }))] }), SP_JSX.jsx(DFL.PanelSection, { title: "Home page", children: spotlightRows({ spotlightHome, homeStatusBar, feedTabs }, rowChosen !== RECENT_ROW).map((row) => (SP_JSX.jsx(DFL.PanelSectionRow, { children: spotlightRow[row] }, row))) }), SP_JSX.jsxs(DFL.PanelSection, { title: "Appearance", children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Game logo", description: "Shows the game's logo instead of its name, on Home and the game page. A game without a logo keeps its name.", checked: gameLogo, onChange: (value) => settings.setGameLogo(value) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.DropdownItem, { label: "Hero art", description: HERO_FIT_COPY[heroFit], menuLabel: "Hero art", rgOptions: HERO_FITS.map((fit) => ({ data: fit, label: fit === 'fill' ? 'Fill' : 'Fit' })), selectedOption: heroFit, onChange: (option) => settings.setHeroFit(option.data) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.DropdownItem, { label: "Play button", description: playButtonStyle === 'colored' ? "Colored: filled with the game's colour, as before." : "Glass: see-through, like the game page's other buttons.", menuLabel: "Play button", rgOptions: [{ data: 'glass', label: 'Glass' }, { data: 'colored', label: 'Colored' }], selectedOption: playButtonStyle, onChange: (option) => settings.setPlayButtonStyle(option.data) }) })] }), SP_JSX.jsx(DFL.PanelSection, { title: "Screensaver", children: !screensaverAvailable() ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: "Needs a newer Steam client, one with the screensaver (Settings \u2192 Customization \u2192 Screensaver)." })) : (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Game Glance screensaver", description: "Steam's Game Slideshow with the games of your Games row and their custom art, filling the screen. Turn off the logo, status bar and stats for only the art. Off returns Steam's own.", checked: screensaver.enabled, onChange: (value) => settings.setScreensaver({ enabled: value }) }) }), screensaver.enabled && (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Logo", description: "The game's logo at the bottom-left, as on Home (its name when it has none).", checked: screensaver.logo, onChange: (value) => settings.setScreensaver({ logo: value }) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Status bar", description: "Clock, battery and connection at the top-right.", checked: screensaver.statusBar, onChange: (value) => settings.setScreensaver({ statusBar: value }) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Stats", description: "A small card at the bottom-right: your play time, the HowLongToBeat time you are working toward and your achievements.", checked: screensaver.stats, onChange: (value) => settings.setScreensaver({ stats: value }) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: previewScreensaver, children: "Preview" }) })] }))] })) }), SP_JSX.jsx(DFL.PanelSection, { title: "HowLongToBeat match", children: game ? (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsxs(DFL.PanelSectionRow, { children: [SP_JSX.jsx("div", { children: game.name }), SP_JSX.jsx("div", { style: { opacity: 0.7, fontSize: '12px' }, children: match })] }), hltb?.status === 'found' && (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => DFL.Navigation.NavigateToExternalWeb(`https://howlongtobeat.com/game/${hltb.gameId}`), children: "Open on HowLongToBeat" }) })), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: "HowLongToBeat link or ID", value: input, onChange: (e) => setInput(e.target.value) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: save, children: "Use this game" }) }), overrideId !== null && (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: remove, children: "Remove override" }) }))] })) : (SP_JSX.jsx(DFL.PanelSectionRow, { children: "Open a game page first." })) }), SP_JSX.jsxs(DFL.PanelSection, { title: "Data", children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: "Pre-load new games automatically", description: "Checks for new installs every 30 minutes and fetches their game info.", checked: autoPreload, onChange: (value) => settings.setAutoPreload(value) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", description: fetching.running
                                 ? `${fetching.found} found so far. You can close this menu.`
                                 : 'Fills in times and descriptions for every installed game, about one per second.', onClick: () => (fetching.running ? fetchAll.stop() : void fetchAll.start()), children: fetching.running
                                 ? `Stop (${fetching.done} / ${fetching.total || '…'})`
@@ -8100,6 +8107,9 @@ function homeCss(cardScale = CARD_SCALE_HANDHELD) {
         // Game Glance PS5: no store badge (Steam / Non-Steam) on Home, and no faded loop preview of the first games after the Library tile.
         rule('.gh-root .gh-source', 'display: none'),
         rule('.gh-root .gh-ghost', 'display: none'),
+        // Game Glance PS5: the eyebrow ("Last played", "Continue playing") in white; a glass Play pill when chosen.
+        rule('.gh-root .gh-eyebrow', 'color: #fff'),
+        rule('.gh-root.gh-play-glass .gh-btn-play', 'background: rgba(12,16,22,.4); border-color: rgba(255,255,255,.18)'),
         ...ps5HomeRules(cardScale),
     ].join('\n');
 }
@@ -14110,6 +14120,29 @@ function lastPlayedEyebrow(overview, locale, unifideckLastPlayed = null) {
         return null;
     }
 }
+/**
+ * Game Glance PS5 page tweaks: no store pill (Steam / Non-Steam), the "Last played" line in white, and, with
+ * Appearance > Play button: Glass, a see-through Play pill drawn like the page's round buttons.
+ */
+function pageTweaksCss(restyle, glass) {
+    const out = ['.gg-pill { display: none !important; }', '.gg-eyebrow { color: #fff !important; }'];
+    try {
+        const play = restyle && glass ? cls(themeClasses().root, 'ActionButtonAndStatusPanel') : null;
+        if (play) {
+            out.push(`${play} > div:has(> [role="button"]) { background: rgba(255, 255, 255, 0.08) !important; border: 1px solid rgba(255, 255, 255, 0.18) !important; box-sizing: border-box !important; }`);
+            out.push(`${play} [role="button"] + [role="button"] { border-left: 1px solid rgba(255, 255, 255, 0.18) !important; }`);
+            out.push(`${NOT_MOUSE} ${play} [role="button"].gpfocus { background: #ffffff !important; color: #0b0f14 !important; }`);
+        }
+    }
+    catch {
+        // Steam's classes unknown: the colored pill stays
+    }
+    return out.join('\n');
+}
+function PageTweaks({ restyle }) {
+    const { playButtonStyle } = useSettings();
+    return SP_JSX.jsx("style", { children: pageTweaksCss(restyle, playButtonStyle !== 'colored') });
+}
 function Hero({ overview, details, restyle, clean }) {
     // Until Steam has loaded the game's details, the achievement counts Spotlight Home already knows (home/detailsMemo), so the
     // first frame is complete (the Clean panel no longer gains its Achievements column after the open transition's hand-over).
@@ -14194,7 +14227,7 @@ function Hero({ overview, details, restyle, clean }) {
     const cleanStyle = clean ? cleanCss() : '';
     const ringStyle = pageDoc?.defaultView ? ringCss(pageDoc.defaultView) : '';
     const eyebrow = restyle ? openedFrom?.eyebrow ?? lastPlayedEyebrow(overview, locale, launcher?.lastPlayed ?? null) : null;
-    return (SP_JSX.jsxs(SP_JSX.Fragment, { children: [restyle && statusBar && !launching && SP_JSX.jsx(GameStatusBar, {}), game.isShortcut && SP_JSX.jsx(UnifideckRowNav, {}), restyle && SP_JSX.jsx(PlayRowNav, {}), restyle && game.isShortcut && SP_JSX.jsx(UnifideckCloud, { appId: game.appId, installed: uniInstalled }), restyle && game.name !== '' && (SP_JSX.jsxs("div", { className: "gg-titleblock", children: [SP_JSX.jsx(GameTitle, { appId: game.appId, name: game.name, logo: gameLogo, className: "gg-title", logoClassName: "gg-logo", unit: pageUnit }), SP_JSX.jsx(GameMetadata, { doc: pageDoc, eyebrow: eyebrow }, game.appId)] })), SP_JSX.jsxs("div", { className: "gg-hero", ref: heroRef, children: [SP_JSX.jsx("style", { children: themeCss({ restyle, heroFit }) }), SP_JSX.jsx("style", { children: unifideckCss({ restyle }) }), ringStyle && SP_JSX.jsx("style", { children: ringStyle }), cleanStyle && SP_JSX.jsx("style", { children: cleanStyle }), launching && SP_JSX.jsx("style", { children: launchCss() }), accent && SP_JSX.jsx("style", { children: accentCss(accent) }), fillCss && SP_JSX.jsx("style", { children: fillCss }), arrival && restyle && SP_JSX.jsx("style", { children: arrivingCss(clean ? 'clean' : 'spotlight', arrival.intent.mode, arrival.revealed, { cloud: arrival.intent.homeCloud === false, bars: arrival.intent.homeBars, desc: arrival.intent.homeDesc, hltb: arrival.intent.homeHltb, family: arrival.intent.homeFamily, missing: arrival.intent.homeMissing, size: arrival.intent.homeSize, uninstall: arrival.intent.homeUninstall === true }) }), source && (SP_JSX.jsx(GameSourcePill, { label: source, doc: pageDoc, appId: game.appId, active: restyle, children: restyle && SP_JSX.jsx(LibraryPill, { doc: pageDoc, appId: game.appId }) })), cleanStyle && SP_JSX.jsx(CleanInfo, { game: game, hltb: hltb, locale: locale, size: size }), !cleanStyle && (SP_JSX.jsxs(CardsRow, { selectable: restyle, children: [SP_JSX.jsx(InfoCard, { game: game, locale: locale, description: description, size: size, onPress: restyle ? (card) => openGameInfoTab(card.ownerDocument) : undefined }), SP_JSX.jsx(HltbCard, { result: hltb, playedMinutes: game.playedMinutes, locale: locale, restyle: restyle, onPress: restyle && hltbUrl(hltb) ? () => openHltbPage(hltb) : undefined })] })), SP_JSX.jsx("div", { className: "gg-more", "aria-hidden": "true", children: "\u2304" })] })] }));
+    return (SP_JSX.jsxs(SP_JSX.Fragment, { children: [restyle && statusBar && !launching && SP_JSX.jsx(GameStatusBar, {}), game.isShortcut && SP_JSX.jsx(UnifideckRowNav, {}), restyle && SP_JSX.jsx(PlayRowNav, {}), restyle && game.isShortcut && SP_JSX.jsx(UnifideckCloud, { appId: game.appId, installed: uniInstalled }), restyle && game.name !== '' && (SP_JSX.jsxs("div", { className: "gg-titleblock", children: [SP_JSX.jsx(GameTitle, { appId: game.appId, name: game.name, logo: gameLogo, className: "gg-title", logoClassName: "gg-logo", unit: pageUnit }), SP_JSX.jsx(GameMetadata, { doc: pageDoc, eyebrow: eyebrow }, game.appId)] })), SP_JSX.jsxs("div", { className: "gg-hero", ref: heroRef, children: [SP_JSX.jsx("style", { children: themeCss({ restyle, heroFit }) }), SP_JSX.jsx(PageTweaks, { restyle: restyle }), SP_JSX.jsx("style", { children: unifideckCss({ restyle }) }), ringStyle && SP_JSX.jsx("style", { children: ringStyle }), cleanStyle && SP_JSX.jsx("style", { children: cleanStyle }), launching && SP_JSX.jsx("style", { children: launchCss() }), accent && SP_JSX.jsx("style", { children: accentCss(accent) }), fillCss && SP_JSX.jsx("style", { children: fillCss }), arrival && restyle && SP_JSX.jsx("style", { children: arrivingCss(clean ? 'clean' : 'spotlight', arrival.intent.mode, arrival.revealed, { cloud: arrival.intent.homeCloud === false, bars: arrival.intent.homeBars, desc: arrival.intent.homeDesc, hltb: arrival.intent.homeHltb, family: arrival.intent.homeFamily, missing: arrival.intent.homeMissing, size: arrival.intent.homeSize, uninstall: arrival.intent.homeUninstall === true }) }), source && (SP_JSX.jsx(GameSourcePill, { label: source, doc: pageDoc, appId: game.appId, active: restyle, children: restyle && SP_JSX.jsx(LibraryPill, { doc: pageDoc, appId: game.appId }) })), cleanStyle && SP_JSX.jsx(CleanInfo, { game: game, hltb: hltb, locale: locale, size: size }), !cleanStyle && (SP_JSX.jsxs(CardsRow, { selectable: restyle, children: [SP_JSX.jsx(InfoCard, { game: game, locale: locale, description: description, size: size, onPress: restyle ? (card) => openGameInfoTab(card.ownerDocument) : undefined }), SP_JSX.jsx(HltbCard, { result: hltb, playedMinutes: game.playedMinutes, locale: locale, restyle: restyle, onPress: restyle && hltbUrl(hltb) ? () => openHltbPage(hltb) : undefined })] })), SP_JSX.jsx("div", { className: "gg-more", "aria-hidden": "true", children: "\u2304" })] })] }));
 }
 function GameHero(props) {
     const settings = useSettings();
@@ -17266,7 +17299,7 @@ function SpotlightHome() {
     const [restore] = SP_REACT.useState(takeRestore);
     // Home is clean: the feed's tabs that are on (What's new, Friends, Recommended; settings feedTabs) are there (Down
     // reaches them) but stay out of sight until focus is in them. With none on Home has no feed.
-    const { homeStatusBar, gameLogo, homeRowStyle, homeGrayUninstalled, heroFit, feedTabs } = useSettings();
+    const { homeStatusBar, gameLogo, homeRowStyle, playButtonStyle, homeGrayUninstalled, heroFit, feedTabs } = useSettings();
     const feedShown = SP_REACT.useMemo(() => shownTabs(feedTabs), [feedTabs]);
     const hasFeed = feedShown.length > 0;
     const [resolved, setResolved] = SP_REACT.useState(restore === null);
@@ -17292,11 +17325,11 @@ function SpotlightHome() {
     // A finger dragging the game cards (useRowDrag), and its flick: a run as well.
     const [dragRunning, setDragRunning] = SP_REACT.useState(false);
     const cycle = useFastCycle(focusIndex, bumperRepeating || directionRepeating || dragRunning);
-    const shownAt = heroIndex(data.games.length, cycle.shown);
+    // Game Glance PS5: the background art follows the selection on every step, fast runs included (it used to hold).
+    const shownAt = heroIndex(data.games.length, focusIndex);
     const shownGame = shownAt === null ? null : data.games[shownAt] ?? null;
     const heldAccent = SP_REACT.useRef(data.accent);
-    if (!cycle.holding)
-        heldAccent.current = data.accent;
+    heldAccent.current = data.accent; // follows the selection with the art
     const accent = heldAccent.current;
     // The zone holding gamepad focus, as reported by each zone's focus events; tabs/feed raise the sheet.
     const [zone, setZone] = SP_REACT.useState('recents');
@@ -17307,7 +17340,7 @@ function SpotlightHome() {
     const gameIds = SP_REACT.useMemo(() => data.games.map((g) => g.appId), [data.games]);
     // The games either side of the selection, whose hero art is pre-loaded so L1/R1 crossfade at once.
     // Not while a fast run holds the screen: their loads would land on the run's end, as its card widens.
-    const heroNeighbours = SP_REACT.useMemo(() => (cycle.holding ? [] : neighbourIds(gameIds, focusIndex, HERO_PRELOAD_RADIUS)), [gameIds, focusIndex, cycle.holding]);
+    const heroNeighbours = SP_REACT.useMemo(() => neighbourIds(gameIds, focusIndex, HERO_PRELOAD_RADIUS), [gameIds, focusIndex]);
     // With the logo option, their logos too (home/logoArt), on the same rest as the art, so L1/R1 draw the next logo on the step.
     const neighbourKey = heroNeighbours.join(',');
     SP_REACT.useEffect(() => {
@@ -17422,6 +17455,21 @@ function SpotlightHome() {
     const directions = useDirectionSelect(recentsRef, focusIndex, data.games.length, setRecentIndex, setDirectionRepeating);
     const onRecentsButtonDown = (evt) => {
         try {
+            if (homeRowStyle === 'ps5') {
+                const button = Number(evt?.detail?.button);
+                if (button === 10) { // Down: to the Play row under the games
+                    evt.preventDefault?.();
+                    evt.stopPropagation?.();
+                    directions.stop();
+                    focusElement(actionButtons()[0], 'the Play pill');
+                    return;
+                }
+                if (button === 9) { // Up: the games are the top row; nothing above
+                    evt.preventDefault?.();
+                    evt.stopPropagation?.();
+                    return;
+                }
+            }
             const isRepeat = Boolean(evt?.detail?.is_repeat);
             const what = recentsButton(Number(evt?.detail?.button), focusIndex, data.games.length, isRepeat);
             if (what === null)
@@ -17492,6 +17540,21 @@ function SpotlightHome() {
     const actionRowButtons = {
         onButtonDown: (evt) => {
             try {
+                if (homeRowStyle === 'ps5') {
+                    const button = Number(evt?.detail?.button);
+                    if (button === 9) { // Up: back to the games above
+                        evt.preventDefault?.();
+                        evt.stopPropagation?.();
+                        focusGames();
+                        return;
+                    }
+                    if (button === 10) { // Down: the news / friends sheet below
+                        evt.preventDefault?.();
+                        evt.stopPropagation?.();
+                        raiseSheet();
+                        return;
+                    }
+                }
                 if (Number(evt?.detail?.button) === 10) {
                     evt.preventDefault?.();
                     evt.stopPropagation?.();
@@ -17691,7 +17754,7 @@ function SpotlightHome() {
             return undefined;
         return keepSteamFocus(rootRef.current, RETURN_TIMINGS.hold);
     }, [contentUp, restore]);
-    return (SP_JSX.jsxs("div", { ref: rootRef, className: `gh-root${back ? ' gh-back' : ''}${heroFit === 'fit' ? ' gh-fit' : ''}${homeRowStyle === 'ps5' ? ' gh-ps5' : ''}`, onPointerDown: onRootPointerDown, onPointerUp: onRootPointerUp, onPointerCancel: onRootPointerCancel, onWheel: onRootWheel, style: { '--glance-accent': accent, '--glance-accent-text': legibleAccent(accent), '--gh-dim': sheetUp ? DIM_SHEET : DIM_REST, '--gh-side': `${side}px`, '--gh-row': `${rowInset(side, tv)}px`, '--gh-pill': `${pillInset(tv)}px`, '--gh-bottom': `${legend}px`, '--gh-shift': `${stack.shift}px`, '--gh-raise': `${FEED_SHEET.raise + raiseDelta}px`, ...giveWayVars(give) }, children: [SP_JSX.jsx("style", { children: css }), enterOff && SP_JSX.jsx("style", { children: enterOff }), SP_JSX.jsx(HeroBackground, { appId: resolved ? shownGame?.appId ?? null : null, detailsVersion: data.detailsVersion, neighbours: heroNeighbours }), SP_JSX.jsx("div", { className: "gh-hero-open" }), SP_JSX.jsx("div", { className: "gh-scrim gh-scrim-dim" }), SP_JSX.jsx("div", { className: "gh-scrim gh-scrim-page" }), SP_JSX.jsxs("div", { className: "gh-canvas", style: canvasStyle(canvas, logicalHeight, Boolean(size)), children: [homeStatusBar && contentUp && SP_JSX.jsx(GameStatusBar, { hidden: sheetUp }), SP_JSX.jsx("div", { className: "gh-open-shell", "data-i": "0" }), SP_JSX.jsx("div", { className: "gh-open-shell", "data-i": "1" }), !onLibrary && uniInstalled === true && SP_JSX.jsx("div", { className: "gh-open-circle", children: SP_JSX.jsx(FaTrash, {}) }), SP_JSX.jsx("div", { className: "gh-safe", children: SP_JSX.jsxs("div", { className: `gh-page${sheetUp ? ' gh-page-up' : ''}`, children: [contentUp && game && hasFeed ? (SP_JSX.jsx("div", { className: "gh-sheet-toggle", role: "button", "aria-label": sheetUp ? 'Back to the games' : 'Show the feed', onClick: () => (sheetUp ? focusGames() : raiseSheet()), children: SP_JSX.jsx("svg", { viewBox: "0 0 28 12", "aria-hidden": "true", children: SP_JSX.jsx("path", { d: "M2 2 L14 10 L26 2" }) }) })) : null, !contentUp ? null : game ? (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsxs("section", { className: "gh-title-block", ref: actionsRef, onFocus: onActionsFocus, onBlur: onActionsBlur, children: [onLibrary ? (SP_JSX.jsx(TitleBlock, { eyebrow: eyebrowText(null, true), title: tr('viewLibrary'), chips: data.libraryChips })) : (SP_JSX.jsx(TitleBlock, { eyebrow: collectionEyebrow(data.rowCollection, eyebrowText(data.lastPlayedLabel, false, data.focusedIsNew, data.rowCollection !== null)), title: game.name, chips: data.chips, appId: game.appId, logo: gameLogo, version: data.detailsVersion, resolve: !cycle.holding })), SP_JSX.jsx(ActionRow, { game: onLibrary ? null : game, running: data.focusedRunning, download: data.download, status: data.pillStatus, preferred: !restoring && focusedOnce, buttons: actionRowButtons, cloud: onLibrary ? null : cloud, onBack: focusGames, unifideck: !onLibrary && typeof uniInstalled === 'boolean' ? { installed: uniInstalled } : null })] }), !onLibrary && data.source && (SP_JSX.jsx(HomePills, { appId: game.appId, source: data.source, family: family, count: copies.count, versions: versions, onFocus: onActionsFocus, onBack: focusGames, buttons: actionRowButtons })), SP_JSX.jsx(RecentsRow, { games: data.games, selected: focusIndex, geometry: rowGeometry, nav: recentsNav, rowStyle: homeRowStyle, grayUninstalled: homeGrayUninstalled, viewport: rowViewport, expand: !cycle.narrow, snap: cycle.holding }), hasFeed && SP_JSX.jsx(FeedSheet, { data: data, tabs: feedShown, raised: sheetUp, viewport: canvas.logicalWidth - feedViewportInset(side, tv), space: feedSpace(logicalHeight, legend, raiseDelta), onZone: setZone, onBackToGames: focusGames, scale: canvasScale, restore: restore, onRestored: () => setRestoring(false) })] })) : showEmptyMessage(data.games.length, data.recentsSettled) ? (
+    return (SP_JSX.jsxs("div", { ref: rootRef, className: `gh-root${back ? ' gh-back' : ''}${heroFit === 'fit' ? ' gh-fit' : ''}${homeRowStyle === 'ps5' ? ' gh-ps5' : ''}${playButtonStyle !== 'colored' ? ' gh-play-glass' : ''}`, onPointerDown: onRootPointerDown, onPointerUp: onRootPointerUp, onPointerCancel: onRootPointerCancel, onWheel: onRootWheel, style: { '--glance-accent': accent, '--glance-accent-text': legibleAccent(accent), '--gh-dim': sheetUp ? DIM_SHEET : DIM_REST, '--gh-side': `${side}px`, '--gh-row': `${rowInset(side, tv)}px`, '--gh-pill': `${pillInset(tv)}px`, '--gh-bottom': `${legend}px`, '--gh-shift': `${stack.shift}px`, '--gh-raise': `${FEED_SHEET.raise + raiseDelta}px`, ...giveWayVars(give) }, children: [SP_JSX.jsx("style", { children: css }), enterOff && SP_JSX.jsx("style", { children: enterOff }), SP_JSX.jsx(HeroBackground, { appId: resolved ? shownGame?.appId ?? null : null, detailsVersion: data.detailsVersion, neighbours: heroNeighbours }), SP_JSX.jsx("div", { className: "gh-hero-open" }), SP_JSX.jsx("div", { className: "gh-scrim gh-scrim-dim" }), SP_JSX.jsx("div", { className: "gh-scrim gh-scrim-page" }), SP_JSX.jsxs("div", { className: "gh-canvas", style: canvasStyle(canvas, logicalHeight, Boolean(size)), children: [homeStatusBar && contentUp && SP_JSX.jsx(GameStatusBar, { hidden: sheetUp }), SP_JSX.jsx("div", { className: "gh-open-shell", "data-i": "0" }), SP_JSX.jsx("div", { className: "gh-open-shell", "data-i": "1" }), !onLibrary && uniInstalled === true && SP_JSX.jsx("div", { className: "gh-open-circle", children: SP_JSX.jsx(FaTrash, {}) }), SP_JSX.jsx("div", { className: "gh-safe", children: SP_JSX.jsxs("div", { className: `gh-page${sheetUp ? ' gh-page-up' : ''}`, children: [contentUp && game && hasFeed ? (SP_JSX.jsx("div", { className: "gh-sheet-toggle", role: "button", "aria-label": sheetUp ? 'Back to the games' : 'Show the feed', onClick: () => (sheetUp ? focusGames() : raiseSheet()), children: SP_JSX.jsx("svg", { viewBox: "0 0 28 12", "aria-hidden": "true", children: SP_JSX.jsx("path", { d: "M2 2 L14 10 L26 2" }) }) })) : null, !contentUp ? null : game ? (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsxs("section", { className: "gh-title-block", ref: actionsRef, onFocus: onActionsFocus, onBlur: onActionsBlur, children: [onLibrary ? (SP_JSX.jsx(TitleBlock, { eyebrow: eyebrowText(null, true), title: tr('viewLibrary'), chips: data.libraryChips })) : (SP_JSX.jsx(TitleBlock, { eyebrow: collectionEyebrow(data.rowCollection, eyebrowText(data.lastPlayedLabel, false, data.focusedIsNew, data.rowCollection !== null)), title: game.name, chips: data.chips, appId: game.appId, logo: gameLogo, version: data.detailsVersion, resolve: !cycle.holding })), SP_JSX.jsx(ActionRow, { game: onLibrary ? null : game, running: data.focusedRunning, download: data.download, status: data.pillStatus, preferred: !restoring && focusedOnce, buttons: actionRowButtons, cloud: onLibrary ? null : cloud, onBack: focusGames, unifideck: !onLibrary && typeof uniInstalled === 'boolean' ? { installed: uniInstalled } : null })] }), !onLibrary && data.source && (SP_JSX.jsx(HomePills, { appId: game.appId, source: data.source, family: family, count: copies.count, versions: versions, onFocus: onActionsFocus, onBack: focusGames, buttons: actionRowButtons })), SP_JSX.jsx(RecentsRow, { games: data.games, selected: focusIndex, geometry: rowGeometry, nav: recentsNav, rowStyle: homeRowStyle, grayUninstalled: homeGrayUninstalled, viewport: rowViewport, expand: !cycle.narrow, snap: cycle.holding }), hasFeed && SP_JSX.jsx(FeedSheet, { data: data, tabs: feedShown, raised: sheetUp, viewport: canvas.logicalWidth - feedViewportInset(side, tv), space: feedSpace(logicalHeight, legend, raiseDelta), onZone: setZone, onBackToGames: focusGames, scale: canvasScale, restore: restore, onRestored: () => setRestoring(false) })] })) : showEmptyMessage(data.games.length, data.recentsSettled) ? (
                                 // No recents once the boot-time retries are over: the Library action, so Home is never
                                 // a dead end. During the retries only the plain hero shows.
                                 SP_JSX.jsx("div", { className: "gh-empty", children: SP_JSX.jsx(LibraryActionRow, { preferred: true }) })) : null] }) })] }), game && !cycle.holding && SP_JSX.jsxs("div", { className: "gh-normal-cards", children: [SP_JSX.jsx(InfoCardPanel, { prefix: "gh-normal", stats: homeCleanStats(data.chips, data.playedMinutes, data.hltb, data.locale, sizeColumn).filter((s) => s.key !== 'hltb'), description: data.description }), SP_JSX.jsx(HltbCard, { prefix: "gh-normal", result: data.hltb, playedMinutes: data.playedMinutes, locale: data.locale, restyle: true })] }), game && !cycle.holding && SP_JSX.jsx(CleanInfoPanel, { className: "gh-clean-info", prefix: "gh-clean", stats: homeCleanStats(data.chips, data.playedMinutes, data.hltb, data.locale, sizeColumn) }), SP_JSX.jsx("div", { className: "gh-open-ring", "data-i": "0" }), SP_JSX.jsx("div", { className: "gh-open-ring", "data-i": "1" }), game && !cycle.holding && SP_JSX.jsx(OpenExtras, { description: data.description, hltb: data.hltb, playedMinutes: data.playedMinutes, locale: data.locale, source: data.source, family: family, familyMultiple: copies.count > 1, sourceMultiple: versions.length > 1, playedMissing: !data.chips.some((c) => c.key === 'played'), size: sizeColumn })] }));
