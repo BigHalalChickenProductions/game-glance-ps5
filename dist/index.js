@@ -3562,7 +3562,7 @@ function readScreensaverOptions(raw) {
 }
 
 const KEY$2 = 'settings';
-const DEFAULTS = { enabled: true, autoPreload: true, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: RECENT_ROW, homeRowSort: 'lastPlayed', homeRowStyle: 'steam', playButtonStyle: 'glass', homeGrayUninstalled: true, heroFit: 'fill', feedTabs: FEED_TABS_DEFAULT, screensaver: SCREENSAVER_DEFAULTS };
+const DEFAULTS = { enabled: true, autoPreload: true, spotlightHome: false, wishlistDeals: false, cleanPage: false, homeStatusBar: true, statusAvatar: false, gameLogo: false, homeRow: RECENT_ROW, homeRowSort: 'lastPlayed', homeRowStyle: 'steam', playButtonStyle: 'glass', openAnimation: 'fast', homeGrayUninstalled: true, heroFit: 'fill', feedTabs: FEED_TABS_DEFAULT, screensaver: SCREENSAVER_DEFAULTS };
 function createSettingsStore(kv) {
     let current = { ...DEFAULTS };
     let retained = {};
@@ -3592,6 +3592,7 @@ function createSettingsStore(kv) {
                 homeRowSort: rowSortOf(raw?.homeRowSort),
                 homeRowStyle: rowStyleOf(raw?.homeRowStyle),
                 playButtonStyle: raw?.playButtonStyle === 'colored' ? 'colored' : 'glass',
+                openAnimation: raw?.openAnimation === 'smooth' ? 'smooth' : 'fast',
                 homeGrayUninstalled: pick('homeGrayUninstalled'),
                 heroFit: heroFitOf(raw?.heroFit),
                 feedTabs: feedTabsOf(raw?.feedTabs),
@@ -3634,6 +3635,12 @@ function createSettingsStore(kv) {
             current = { ...current, homeRowSort };
             emit();
             await persist({ homeRowSort });
+        },
+        async setOpenAnimation(openAnimation) {
+            openAnimation = openAnimation === 'smooth' ? 'smooth' : 'fast';
+            current = { ...current, openAnimation };
+            emit();
+            await persist({ openAnimation });
         },
         async setPlayButtonStyle(playButtonStyle) {
             playButtonStyle = playButtonStyle === 'colored' ? 'colored' : 'glass';
@@ -4128,7 +4135,7 @@ function spotlightRows(s, collectionRow) {
     rows.push('gamesRow');
     if (collectionRow)
         rows.push('rowSort');
-    rows.push('rowStyle', 'grayUninstalled', 'news', 'friends', 'recommended');
+    rows.push('rowStyle', 'openAnimation', 'grayUninstalled', 'news', 'friends', 'recommended');
     if (s.feedTabs.recommended)
         rows.push('wishlistDeals');
     rows.push('statusBar');
@@ -4303,7 +4310,7 @@ const HERO_FIT_COPY = {
     fit: 'Shows the whole art at the top, with a blurred copy behind it.',
 };
 function SettingsPanel() {
-    const { enabled, autoPreload, spotlightHome, wishlistDeals, cleanPage, homeStatusBar, statusAvatar, gameLogo, homeRow, homeRowSort, homeRowStyle, playButtonStyle, homeGrayUninstalled, heroFit, feedTabs, screensaver } = useSettings();
+    const { enabled, autoPreload, spotlightHome, wishlistDeals, cleanPage, homeStatusBar, statusAvatar, gameLogo, homeRow, homeRowSort, homeRowStyle, playButtonStyle, openAnimation, homeGrayUninstalled, heroFit, feedTabs, screensaver } = useSettings();
     // Read when the panel opens, so a collection made since shows up.
     const collections = SP_REACT.useMemo(steamHomeCollections, []);
     const rowChosen = collections.some((c) => c.id === homeRow) ? homeRow : RECENT_ROW;
@@ -4348,6 +4355,7 @@ function SettingsPanel() {
         spotlightHome: (SP_JSX.jsx(DFL.ToggleField, { label: "Spotlight Home", description: "Replaces Steam's Home screen. Off returns Steam's own Home.", checked: spotlightHome, onChange: (value) => settings.setSpotlightHome(value) })),
         gamesRow: (SP_JSX.jsx(DFL.DropdownItem, { label: "Games row", description: "Your recent games (with games new to your library, as on Steam's Home), or one of your collections.", menuLabel: "Games row", rgOptions: [{ data: RECENT_ROW, label: tr('recentGames') }, ...collections.map((c) => ({ data: c.id, label: `${c.name} (${c.count})` }))], selectedOption: rowChosen, onChange: (option) => settings.setHomeRow(String(option.data)) })),
         rowSort: (SP_JSX.jsx(DFL.DropdownItem, { label: sortByLabel(), menuLabel: sortByLabel(), rgOptions: ROW_SORTS.map((s) => ({ data: s, label: rowSortLabel(s) })), selectedOption: homeRowSort, onChange: (option) => settings.setHomeRowSort(option.data) })),
+        openAnimation: (SP_JSX.jsx(DFL.DropdownItem, { label: "Opening a game", description: openAnimation === 'smooth' ? "Smooth: Home turns into the game page (about a second before you can press Play)." : "Fast: the game page opens straight away, ready for Play.", menuLabel: "Opening a game", rgOptions: [{ data: 'fast', label: 'Fast' }, { data: 'smooth', label: 'Smooth' }], selectedOption: openAnimation, onChange: (option) => settings.setOpenAnimation(option.data) })),
         rowStyle: (SP_JSX.jsx(DFL.DropdownItem, { label: "Games row style", description: "Steam: the first game stays wide and selection moves along the row. Spotlight: the selected game stays wide at the left. Minimal: all cards stay small. PS5: square tiles along the top, with the game's title and Play button at the bottom.", menuLabel: "Games row style", rgOptions: [{ data: 'steam', label: 'Steam' }, { data: 'spotlight', label: 'Spotlight' }, { data: 'minimal', label: 'Minimal' }, { data: 'ps5', label: 'PS5' }], selectedOption: homeRowStyle, onChange: (option) => settings.setHomeRowStyle(option.data) })),
         grayUninstalled: (SP_JSX.jsx(DFL.ToggleField, { label: "Gray out uninstalled games", description: "Shows uninstalled Steam games in gray until selected. Turn off to keep their artwork in color.", checked: homeGrayUninstalled, onChange: (value) => settings.setHomeGrayUninstalled(value) })),
         wishlistDeals: (SP_JSX.jsx(DFL.ToggleField, { label: "Show wishlist deals", description: "Sends your Steam ID to Steam's public store to find games on sale from your wishlist. Off by default.", checked: wishlistDeals, onChange: (value) => settings.setWishlistDeals(value) })),
@@ -8109,7 +8117,7 @@ function homeCss(cardScale = CARD_SCALE_HANDHELD) {
         rule('.gh-root .gh-ghost', 'display: none'),
         // Game Glance PS5: the eyebrow ("Last played", "Continue playing") in white; a glass Play pill when chosen.
         rule('.gh-root .gh-eyebrow', 'color: #fff'),
-        rule('.gh-root.gh-play-glass .gh-btn-play', 'background: rgba(12,16,22,.4); border-color: rgba(255,255,255,.18)'),
+        rule('.gh-root.gh-play-glass .gh-btn-play', 'background-color: rgba(12,16,22,.4); border-color: rgba(255,255,255,.18); backdrop-filter: blur(12px)'),
         ...ps5HomeRules(cardScale),
     ].join('\n');
 }
@@ -11493,6 +11501,11 @@ function openGame(appId, source) {
     // Steam's own sound for going into a game's page (every open from Home: a card, the info button, a feed card).
     playNavSound('IntoGameDetail');
     markLeaving();
+    if (settings.get().openAnimation !== 'smooth') {
+        // Game Glance PS5 "Fast" open: straight to the page, which is usable at once (the morph held it ~1 s).
+        openPage(appId);
+        return;
+    }
     try {
         const root = source?.closest?.('.gh-root') ?? null;
         const mode = homeMode(settings.get());
@@ -14129,9 +14142,11 @@ function pageTweaksCss(restyle, glass) {
     try {
         const play = restyle && glass ? cls(themeClasses().root, 'ActionButtonAndStatusPanel') : null;
         if (play) {
-            out.push(`${play} > div:has(> [role="button"]) { background: rgba(255, 255, 255, 0.08) !important; border: 1px solid rgba(255, 255, 255, 0.18) !important; box-sizing: border-box !important; }`);
-            out.push(`${play} [role="button"] + [role="button"] { border-left: 1px solid rgba(255, 255, 255, 0.18) !important; }`);
-            out.push(`${NOT_MOUSE} ${play} [role="button"].gpfocus { background: #ffffff !important; color: #0b0f14 !important; }`);
+            // Exactly the restyled page's round buttons (restyleRules: menuButton): dark glass, the page's ring, the blur.
+            // Only the colour is set, so the download fill (a background image on the pill) still draws over it.
+            // Focus is left to the page's own pill focus: the same white ring and glow as the round buttons.
+            out.push(`${play} > div:has(> [role="button"]) { background-color: rgba(12, 16, 22, 0.4) !important; border: ${d(1)} solid ${ring(0.18)} !important; box-sizing: border-box !important; backdrop-filter: blur(${d(12)}) !important; }`);
+            out.push(`${play} [role="button"] + [role="button"] { border-left: ${d(1)} solid ${ring(0.18)} !important; }`);
         }
     }
     catch {
