@@ -8141,6 +8141,11 @@ function homeCss(cardScale = CARD_SCALE_HANDHELD) {
         // Game Glance PS5: the eyebrow ("Last played", "Continue playing") in white; a glass Play pill when chosen.
         rule('.gh-root .gh-eyebrow', 'color: #fff'),
         rule('.gh-root.gh-play-glass .gh-btn-play', 'background-color: rgba(12,16,22,.4); border-color: rgba(255,255,255,.18); backdrop-filter: blur(12px)'),
+        // ...and the same glass while Home turns into the game page (the morph draws Play's pill as ::before / ::after).
+        rule('.gh-root.gh-root.gh-play-glass.gh-play-glass[data-gh-opening] .gh-actions > .gh-btn[data-action="play"]::before', 'background: rgba(12,16,22,.4); border: 1px solid rgba(255,255,255,.18); box-sizing: border-box; backdrop-filter: blur(12px)'),
+        rule('.gh-root.gh-root.gh-play-glass.gh-play-glass[data-gh-opening] .gh-actions > .gh-btn[data-action="play"]::after', 'background: transparent'),
+        // Game Glance PS5: no store badge in the animation either (the page has none).
+        rule('.gh-root.gh-root.gh-root .gh-x-pill, .gh-root.gh-root.gh-root .gh-x-family, .gh-root.gh-root.gh-root .gh-x-store-choice', 'display: none'),
         ...ps5HomeRules(cardScale),
     ].join('\n');
 }
